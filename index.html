@@ -24,7 +24,7 @@
 			////////////////////////////////////////////////////////////////////////////////
 			// CONSTS
 			////////////////////////////////////////////////////////////////////////////////
-			const NUM_FRAG_SHADERS = 10;
+			const FRAG_SHADER_MAX_IDX = 1;
 
 			////////////////////////////////////////////////////////////////////////////////
 			// GLOBALS
@@ -60,12 +60,13 @@
 						idx = Math.max(0, idx - 1);
 						break;
 					case "ArrowRight":
-						idx = Math.min(NUM_FRAG_SHADERS, idx + 1);
+						idx = Math.min(FRAG_SHADER_MAX_IDX, idx + 1);
 						break;
 				}
 
 				if (prevIdx != idx) {
-					glSetup();
+					console.log(`New index ${idx}, re-fetching frag`);
+					fetchFragSource();
 				}
 			}
 
@@ -91,6 +92,10 @@ void main()
 			function fetchFragSource() {
 				fetch(`frag-${idx}.glsl`).then(r => r.text()).then(text => {
 					fragSource = text;
+
+					// The fragment shader has changed, so invalidate the current
+					// program if any.
+					program = null;
 				})
 			}
 
@@ -170,6 +175,11 @@ void main()
 				// Compile and link shaders
 				let vertexShader = createShader(gl.VERTEX_SHADER, vertexSource);
 				let fragmentShader = createShader(gl.FRAGMENT_SHADER, fragSource);
+
+				if (fragmentShader == null) {
+					console.log("Bad frag shader- stopping");
+					return null;
+				}
 
 				// Shadowing
 				let program = createProgram(vertexShader, fragmentShader);
