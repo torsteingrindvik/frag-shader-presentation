@@ -19,39 +19,64 @@
 
 <body>
 	<canvas id="canvas"></canvas>
-	<script type="x-shader/x-fragment" id="fragmentShader"></script>
-
 	<script>
 		window.onload = function () {
-			var canvas = document.getElementById('canvas');
-			var gl = canvas.getContext('webgl');
+			////////////////////////////////////////////////////////////////////////////////
+			// CONSTS
+			////////////////////////////////////////////////////////////////////////////////
+			const NUM_FRAG_SHADERS = 10;
 
-			var idx = 1;
+			////////////////////////////////////////////////////////////////////////////////
+			// GLOBALS
+			////////////////////////////////////////////////////////////////////////////////
+			let canvas = document.getElementById('canvas');
+			let gl = canvas.getContext('webgl');
 
+			// Which `frag-x.glsl` to use.
+			let idx = 0;
+
+			// These are set at runtime.
+			let vertexSource;
+			let fragSource;
+			let program;
+
+			////////////////////////////////////////////////////////////////////////////////
+			// BROWSER: Resizing
+			////////////////////////////////////////////////////////////////////////////////
 			function resizeCanvas() {
 				canvas.width = window.innerWidth;
 				canvas.height = window.innerHeight;
 
 				gl.viewport(0, 0, canvas.width, canvas.height);
-
-				draw(`frag-${idx}.glsl`);
 			}
-			resizeCanvas();
 
-			window.addEventListener('resize', resizeCanvas);
-			window.addEventListener('keydown', function (event) {
+			////////////////////////////////////////////////////////////////////////////////
+			// BROWSER: Input handling
+			////////////////////////////////////////////////////////////////////////////////
+			function handleInput(event) {
+				let prevIdx = idx;
 				switch (event.key) {
 					case "ArrowLeft":
-						idx -= 1;
+						idx = Math.max(0, idx - 1);
 						break;
 					case "ArrowRight":
-						idx += 1;
+						idx = Math.min(NUM_FRAG_SHADERS, idx + 1);
 						break;
 				}
-				resizeCanvas();
-			});
 
-			var vertexShaderSource = `
+				if (prevIdx != idx) {
+					glSetup();
+				}
+			}
+
+			////////////////////////////////////////////////////////////////////////////////
+			// BROWSER: Loading sources
+			////////////////////////////////////////////////////////////////////////////////
+
+			// We are using full screen frag shaders,
+			// so the vertex source does not need to change.
+			function fetchVertexSource() {
+				vertexSource = `
 attribute vec2 a_position;
 
 void main()
@@ -59,70 +84,168 @@ void main()
    gl_Position = vec4(a_position, 0.0, 1.0);
 }
             `;
+			}
 
-			function draw(source) {
-				fetch(source).then(r => r.text()).then(text => {
-					var fragmentShaderSource = text;
+			// The frag shader source is fetched based on the global
+			// index variable.
+			function fetchFragSource() {
+				fetch(`frag-${idx}.glsl`).then(r => r.text()).then(text => {
+					fragSource = text;
+				})
+			}
 
-					// Compile and link shaders
-					var vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
-					var fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
-					var program = createProgram(gl, vertexShader, fragmentShader);
-					gl.useProgram(program);
+			////////////////////////////////////////////////////////////////////////////////
+			// BROWSER: Add event listeners
+			////////////////////////////////////////////////////////////////////////////////
+			window.addEventListener('resize', resizeCanvas);
+			window.addEventListener('keydown', handleInput);
 
-					var vertices = [
+			////////////////////////////////////////////////////////////////////////////////
+			// WEBGL ONCE: Given the shader sources, compile, link, and create a program.
+			// 	Everything needed to start continuous re-drawing.
+			//  Returns the program if all is ok else null.
+			////////////////////////////////////////////////////////////////////////////////
+			function glSetup() {
+				// Quit early if we're not ready.
+				if (vertexSource == undefined) {
+					console.log("Vertex source is not ready");
+					return null;
+				} else if (fragSource == undefined) {
+					console.log("Frag source is not ready");
+					return null;
+				}
+
+				// Create a shader of a given type with the source text given.
+				function createShader(type, source) {
+					let shader = gl.createShader(type);
+					gl.shaderSource(shader, source);
+					gl.compileShader(shader);
+
+					let success = gl.getShaderParameter(shader, gl.COMPILE_STATUS);
+					if (!success) {
+						console.log(gl.getShaderInfoLog(shader));
+						gl.deleteShader(shader);
+						return null;
+					}
+
+					return shader;
+				}
+
+				// Given a vertex and frag shader, create a program
+				// attach both and link it.
+				// Null if anything goes wrong.
+				function createProgram(vertexShader, fragmentShader) {
+					let program = gl.createProgram();
+					gl.attachShader(program, vertexShader);
+					gl.attachShader(program, fragmentShader);
+					gl.linkProgram(program);
+
+					let success = gl.getProgramParameter(program, gl.LINK_STATUS);
+					if (!success) {
+						console.log(gl.getProgramInfoLog(program));
+						gl.deleteProgram(program);
+						return null;
+					}
+
+					return program;
+				}
+
+				// Put four vertices into a buffer, creating a full screen quad.
+				function setQuad(program) {
+					let vertices = [
 						-1, -1, // Bottom-left
 						1, -1, // Bottom-right
 						1, 1,  // Top-right
 						-1, 1  // Top-left
 					];
-					var vertexBuffer = gl.createBuffer();
+					let vertexBuffer = gl.createBuffer();
 					gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
 					gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
 
-					// Configure attributes and uniforms
-					var positionAttributeLocation = gl.getAttribLocation(program, 'a_position');
+					let positionAttributeLocation = gl.getAttribLocation(program, 'a_position');
 					gl.enableVertexAttribArray(positionAttributeLocation);
 					gl.vertexAttribPointer(positionAttributeLocation, 2, gl.FLOAT, false, 0, 0);
-
-					var resolutionUniformLocation = gl.getUniformLocation(program, 'u_resolution');
-					gl.uniform2f(resolutionUniformLocation, canvas.width, canvas.height);
-
-					gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
-				})
-			}
-
-			// Helper functions for shader creation
-			function createShader(gl, type, source) {
-				var shader = gl.createShader(type);
-				gl.shaderSource(shader, source);
-				gl.compileShader(shader);
-
-				var success = gl.getShaderParameter(shader, gl.COMPILE_STATUS);
-				if (!success) {
-					console.log(gl.getShaderInfoLog(shader));
-					gl.deleteShader(shader);
-					return null;
 				}
 
-				return shader;
-			}
+				// Compile and link shaders
+				let vertexShader = createShader(gl.VERTEX_SHADER, vertexSource);
+				let fragmentShader = createShader(gl.FRAGMENT_SHADER, fragSource);
 
-			function createProgram(gl, vertexShader, fragmentShader) {
-				var program = gl.createProgram();
-				gl.attachShader(program, vertexShader);
-				gl.attachShader(program, fragmentShader);
-				gl.linkProgram(program);
+				// Shadowing
+				let program = createProgram(vertexShader, fragmentShader);
 
-				var success = gl.getProgramParameter(program, gl.LINK_STATUS);
-				if (!success) {
-					console.log(gl.getProgramInfoLog(program));
-					gl.deleteProgram(program);
-					return null;
+				if (program != null) {
+					gl.useProgram(program);
+					setQuad(program);
 				}
 
 				return program;
 			}
+
+			////////////////////////////////////////////////////////////////////////////////
+			// WEBGL CONTINUOUS: Draw to screen
+			////////////////////////////////////////////////////////////////////////////////
+			let start;
+			function draw(timestamp) {
+				function update_uniform_time() {
+					if (start === undefined) {
+						start = timestamp;
+						console.log("Start time established");
+					} else if (program === undefined) {
+						console.log("Program not ready");
+					} else {
+						let secs = (timestamp - start) / 1000.;
+						let timeUniformLocation = gl.getUniformLocation(program, 'u_time');
+
+						gl.uniform1f(timeUniformLocation, secs);
+					}
+				}
+
+				function update_uniform_resolution() {
+					let resolutionUniformLocation = gl.getUniformLocation(program, 'u_resolution');
+					gl.uniform2f(resolutionUniformLocation, canvas.width, canvas.height);
+				}
+
+				function setProgram() {
+					let program_maybe = glSetup();
+					if (program_maybe !== null) {
+						// Update global
+						program = program_maybe;
+					} else {
+						console.log("No program!");
+						return;
+					}
+				}
+
+				if (program == null) {
+					setProgram();
+				} else {
+					// Update uniforms
+					update_uniform_time();
+					update_uniform_resolution();
+
+					// Perform the draw
+					gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
+				}
+
+				// Reqeuest next draw
+				window.requestAnimationFrame(draw);
+			}
+
+			////////////////////////////////////////////////////////////////////////////////
+			// BROWSER: Start work
+			////////////////////////////////////////////////////////////////////////////////
+
+			// Before any resize events, use this callback manually to have a good starting
+			// point.
+			resizeCanvas();
+
+			// The shader sources must be fetched as well.
+			fetchVertexSource();
+			fetchFragSource();
+
+			// Start the gl loop
+			window.requestAnimationFrame(draw);
 		};
 	</script>
 </body>
