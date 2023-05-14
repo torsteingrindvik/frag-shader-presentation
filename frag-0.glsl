@@ -9,16 +9,14 @@ void main()
 {
 	vec2 uv=gl_FragCoord.xy/u_resolution;
 	
-	float EPS=.01;
-	float W=2.*EPS;
+	float t=floor(mod(u_time,3.));
 	
-	float ll=.5+.4*sin(u_time*.7);
-	
-	float lr=ll+W;
-	
-	float r=S(ll-EPS,ll+EPS,uv.x);
-	
-	r=r*S(lr+EPS,lr-EPS,uv.x);
-	
-	gl_FragColor=vec4(r,0.,0.,1.);
+	if(t<1.){
+		gl_FragColor=vec4(fract(uv.x),0.,0.,1.);
+	}else if(t<2.){
+		gl_FragColor=vec4(0.,fract(uv.y),0.,1.);
+	}else{
+		gl_FragColor=vec4(fract(uv),0.,1.);
+		
+	}
 }
