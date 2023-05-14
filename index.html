@@ -9,6 +9,7 @@
 			margin: 0;
 			padding: 0;
 			overflow: hidden;
+			touch-action: none;
 		}
 
 		canvas {
@@ -53,22 +54,62 @@
 			////////////////////////////////////////////////////////////////////////////////
 			// BROWSER: Input handling
 			////////////////////////////////////////////////////////////////////////////////
-			function handleInput(event) {
+			function idxAdd() {
+				return Math.min(FRAG_SHADER_MAX_IDX, idx + 1);
+			}
+			function idxSub() {
+				return Math.max(0, idx - 1);
+			}
+
+			// Given some function and an event,
+			// call this function with the event which might change the index.
+			// If the index then is different, reload the frag shader source.
+			function changeIdx(f, event) {
 				let prevIdx = idx;
-				switch (event.key) {
-					case "ArrowLeft":
-						idx = Math.max(0, idx - 1);
-						break;
-					case "ArrowRight":
-						idx = Math.min(FRAG_SHADER_MAX_IDX, idx + 1);
-						break;
-				}
+
+				f(event);
 
 				if (prevIdx != idx) {
 					console.log(`New index ${idx}, re-fetching frag`);
 					fetchFragSource();
 				}
 			}
+
+			function handleKey(event) {
+				changeIdx(function (event) {
+					switch (event.key) {
+						case "ArrowLeft":
+							idx = idxSub();
+							break;
+						case "ArrowRight":
+							idx = idxAdd();
+							break;
+					}
+				}, event);
+			}
+
+			function handleTouch(event) {
+				changeIdx(function (event) {
+					let x = event.touches[0].clientX;
+
+					let w = window.innerWidth;
+					let portion = w / 5;
+
+					if (x <= portion) {
+						idx = idxSub();
+					} else if (x >= (w - portion)) {
+						idx = idxAdd();
+					}
+				}, event);
+			}
+
+			////////////////////////////////////////////////////////////////////////////////
+			// BROWSER: Add event listeners
+			////////////////////////////////////////////////////////////////////////////////
+			window.addEventListener('resize', resizeCanvas);
+			window.addEventListener('keydown', handleKey);
+			window.addEventListener('touchstart', handleTouch);
+
 
 			////////////////////////////////////////////////////////////////////////////////
 			// BROWSER: Loading sources
@@ -98,12 +139,6 @@ void main()
 					program = null;
 				})
 			}
-
-			////////////////////////////////////////////////////////////////////////////////
-			// BROWSER: Add event listeners
-			////////////////////////////////////////////////////////////////////////////////
-			window.addEventListener('resize', resizeCanvas);
-			window.addEventListener('keydown', handleInput);
 
 			////////////////////////////////////////////////////////////////////////////////
 			// WEBGL ONCE: Given the shader sources, compile, link, and create a program.
