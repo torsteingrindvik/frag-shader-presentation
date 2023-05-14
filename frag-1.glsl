@@ -2,23 +2,38 @@ precision mediump float;
 
 uniform float u_time;
 uniform vec2 u_resolution;
+uniform vec2 u_mouse;
 
 #define S(a,b,x)smoothstep(a,b,x)
 
 void main()
 {
 	vec2 uv=gl_FragCoord.xy/u_resolution;
+	float w=u_resolution.x;
+	float h=u_resolution.y;
 	
-	float EPS=.01;
-	float W=2.*EPS;
+	// line width horizontal
+	float lw=.02;
 	
-	float ll=.5+.4*sin(u_time*.7);
+	// line width vertical
+	float lwv=lw;
 	
-	float lr=ll+W;
+	if(w>h){
+		// The render target is wider than it is tall.
+		// Therefore we make the line in this axis thinner by this ratio,
+		// which compensates for this
+		lw*=h/w;
+	}else{
+		lwv*=w/h;
+	}
 	
-	float r=S(ll-EPS,ll+EPS,uv.y);
+	float my=u_mouse.y/u_resolution.y;
+	float r=S(my-lwv,my,uv.y);
+	r*=S(my+lwv,my,uv.y);
 	
-	r=r*S(lr+EPS,lr-EPS,uv.y);
+	float mx=u_mouse.x/u_resolution.x;
+	float r2=S(mx-lw,mx,uv.x);
+	r2*=S(mx+lw,mx,uv.x);
 	
-	gl_FragColor=vec4(r,r,0.,1.);
+	gl_FragColor=vec4(r,r2,0.,1.);
 }

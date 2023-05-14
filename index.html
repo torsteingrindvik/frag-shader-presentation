@@ -35,6 +35,7 @@
 
 			// Which `frag-x.glsl` to use.
 			let idx = 0;
+			let mouse = { 'x': 0, 'y': 0 };
 
 			// These are set at runtime.
 			let vertexSource;
@@ -88,7 +89,7 @@
 				}, event);
 			}
 
-			function handleTouch(event) {
+			function handleTouchStart(event) {
 				changeIdx(function (event) {
 					let x = event.touches[0].clientX;
 
@@ -103,12 +104,29 @@
 				}, event);
 			}
 
+			function setMouse(x, y) {
+				mouse.x = x;
+				mouse.y = window.innerHeight - y;
+			}
+
+			function handleTouchMove(event) {
+				let touch = event.touches[0];
+				setMouse(touch.clientX, touch.clientY)
+			}
+
+			function handleMouseMove(event) {
+				setMouse(event.x, event.y);
+			}
+
+
 			////////////////////////////////////////////////////////////////////////////////
 			// BROWSER: Add event listeners
 			////////////////////////////////////////////////////////////////////////////////
 			window.addEventListener('resize', resizeCanvas);
 			window.addEventListener('keydown', handleKey);
-			window.addEventListener('touchstart', handleTouch);
+			canvas.addEventListener('touchstart', handleTouchStart);
+			canvas.addEventListener('touchmove', handleTouchMove);
+			canvas.addEventListener('mousemove', handleMouseMove);
 
 
 			////////////////////////////////////////////////////////////////////////////////
@@ -251,6 +269,11 @@ void main()
 					gl.uniform2f(resolutionUniformLocation, canvas.width, canvas.height);
 				}
 
+				function update_uniform_mouse() {
+					let mouseUniformLocation = gl.getUniformLocation(program, 'u_mouse');
+					gl.uniform2f(mouseUniformLocation, mouse.x, mouse.y);
+				}
+
 				function setProgram() {
 					let program_maybe = glSetup();
 					if (program_maybe !== null) {
@@ -268,6 +291,7 @@ void main()
 					// Update uniforms
 					update_uniform_time();
 					update_uniform_resolution();
+					update_uniform_mouse();
 
 					// Perform the draw
 					gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
