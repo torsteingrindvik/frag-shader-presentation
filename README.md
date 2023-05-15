@@ -45,6 +45,16 @@ Two intersecting lines, intersecting at the cursor.
 
 To show user input via `u_mouse`.
 
+## frag-4 UV centering
+ 
+### What
+
+Shows the length from the current frag to the UV origin,
+which is centered every other second.
+
+### Why
+
+To setup for UVs in the center for ray marching.
 
 ## frag-? ray marching, v1
 
