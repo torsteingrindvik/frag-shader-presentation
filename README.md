@@ -16,14 +16,13 @@ and perhaps color channels.
 
 ### What
 
+Shows the creation of a line, by multiplication of two smoothsteps.
+Also shows the effect of having a larger distance between the low and high values of smoothstep.
+
 ### Why
 
-### TODO
-
-Cycle between showing left hand side, right hand side,
-multiplied (so line), and multiplied but with some opacity.
-
-Use different colors.
+* Allows explaining smoothstep
+* Allows talking about colors
 
 ## frag-2 lines intersecting, mouse
  
