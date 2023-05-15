@@ -24,7 +24,18 @@ Also shows the effect of having a larger distance between the low and high value
 * Allows explaining smoothstep
 * Allows talking about colors
 
-## frag-2 lines intersecting, mouse
+## frag-2 animated smoothstep
+
+### What
+
+Shows a smoothstepped X axis vs. the current Y value.
+
+### Why
+
+* Allows explaining smoothstep from another perspective
+  * It's interesting to see the same thing from more than one way
+
+## frag-3 lines intersecting, mouse
  
 ### What
 
@@ -179,3 +190,14 @@ Something to do with gamma.
 ### Why
 
 It's important.
+
+## frag-? Ortho
+
+### What
+
+The goal here would be to somehow show how we could move between 
+perspective and orthographic. 
+
+### Why
+
+Camera related, looks  _very_ cool in my mind.

@@ -2,7 +2,7 @@
 <html>
 
 <head>
-	<title>Frag Shader</title>
+	<title>🚦Shader#0</title>
 	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
 	<style>
 		body,
@@ -26,7 +26,7 @@
 			////////////////////////////////////////////////////////////////////////////////
 			// CONSTS
 			////////////////////////////////////////////////////////////////////////////////
-			const FRAG_SHADER_MAX_IDX = 2;
+			const FRAG_SHADER_MAX_IDX = 3;
 
 			////////////////////////////////////////////////////////////////////////////////
 			// GLOBALS
@@ -73,6 +73,7 @@
 
 				if (prevIdx != idx) {
 					console.log(`New index ${idx}, re-fetching frag`);
+					window.document.title = `🚦Shader#${idx}`;
 					fetchFragSource();
 				}
 			}
