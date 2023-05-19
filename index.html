@@ -26,13 +26,13 @@
 			////////////////////////////////////////////////////////////////////////////////
 			// CONSTS
 			////////////////////////////////////////////////////////////////////////////////
-			const FRAG_SHADER_MAX_IDX = 6;
+			const FRAG_SHADER_MAX_IDX = 7;
 
 			////////////////////////////////////////////////////////////////////////////////
 			// GLOBALS
 			////////////////////////////////////////////////////////////////////////////////
 			let canvas = document.getElementById('canvas');
-			let gl = canvas.getContext('webgl');
+			let gl = canvas.getContext('webgl2');
 
 			// Which `frag-x.glsl` to use.
 			let idx = 6;
@@ -165,8 +165,8 @@
 			// We are using full screen frag shaders,
 			// so the vertex source does not need to change.
 			function fetchVertexSource() {
-				vertexSource = `
-attribute vec2 a_position;
+				vertexSource = `#version 300 es
+in vec2 a_position;
 
 void main()
 {

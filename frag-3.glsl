@@ -1,8 +1,11 @@
-precision mediump float;
+#version 300 es
+precision highp float;
 
 uniform float u_time;
 uniform vec2 u_resolution;
 uniform vec2 u_mouse;
+
+out vec4 col;
 
 #define S(a,b,x)smoothstep(a,b,x)
 
@@ -35,5 +38,5 @@ void main()
 	float r2=S(mx-lw,mx,uv.x);
 	r2*=S(mx+lw,mx,uv.x);
 	
-	gl_FragColor=vec4(r,r2,0.,1.);
+	col=vec4(r,r2,0.,1.);
 }

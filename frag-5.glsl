@@ -1,4 +1,5 @@
-precision mediump float;
+#version 300 es
+precision highp float;
 
 uniform float u_time;
 uniform vec2 u_resolution;
@@ -7,6 +8,8 @@ uniform vec2 u_mouse;
 #define S(a,b,x)smoothstep(a,b,x)
 #define sn(r)(r*sin(u_time))
 #define cs(r)(r*cos(u_time))
+
+out vec4 col;
 
 // https://www.shadertoy.com/view/3syGzz
 vec2 repeat(in vec2 p,in float s)
@@ -41,5 +44,5 @@ void main()
 	
 	float l=map(uv,mouse);
 	
-	gl_FragColor=vec4(vec3(l),1.);
+	col=vec4(vec3(l),1.);
 }
