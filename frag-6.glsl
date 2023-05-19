@@ -10,6 +10,8 @@ uniform vec2 u_mouse;
 #define cs(r)(r*cos(u_time))
 #define SK(a,b)smin(a,b,.65);
 
+const mat2 m=mat2(.80,.60,-.60,.80);
+
 // TODO: Link iq
 float smin(in float a,in float b,in float k)
 {
@@ -23,10 +25,78 @@ float sphere(in vec3 p,in float radius)
 	return length(p)-radius;
 }
 
+// https://www.shadertoy.com/view/3syGzz
+vec2 repeat(in vec2 p,in float s)
+{
+	return mod(p+s*.5,s)-s*.5;
+}
+
+float hash21(in vec2 i)
+{
+	return fract(
+		sin(
+			dot(
+				floor(i),
+				vec2(127.1,3423.2)
+			)
+		)*32525.123
+	);
+}
+
+float noise(in vec2 p){
+	return sin(p.x)*sin(p.y);
+}
+
+// iq: https://www.shadertoy.com/view/lsl3RH
+float fbm2(in vec2 p)
+{
+	float f=0.;
+	f+=.5*noise(p);
+	p*=m*2.02;
+	
+	f+=.25*noise(p);
+	p*=m*2.03;
+	
+	return f/.75;
+}
+float fbm3(in vec2 p)
+{
+	float f=0.;
+	f+=.5*noise(p);
+	p*=m*2.02;
+	
+	f+=.25*noise(p);
+	p*=m*2.03;
+	
+	f+=.125*noise(p);
+	p*=m*2.04;
+	
+	return f/.875;
+}
+float fbm4(in vec2 p)
+{
+	float f=0.;
+	f+=.5*noise(p);
+	p*=m*2.02;
+	
+	f+=.25*noise(p);
+	p*=m*2.03;
+	
+	f+=.125*noise(p);
+	p*=m*2.04;
+	
+	f+=.065*noise(p);
+	p*=m*2.01;
+	
+	return f/.94;
+}
+
 float sea(in vec3 p)
 {
 	float t=u_time;
-	float s=sin(p.x+t)*.2;
+	
+	float s=fbm2(p.xz+t*.9)*.1;
+	s+=fbm3(p.xz*.8-t*.4)*.25;
 	
 	return dot(vec3(0.,1.,0.),p-vec3(0.,s-1.4,0.));
 }
@@ -41,11 +111,18 @@ float map(vec3 p)
 	vec3 sph3=vec3(-2.,.3+sin(t+3.),0.);
 	vec3 sph4=vec3(13.,1.2,-10.);
 	
+	float res=sea(p);
+	
+	float dim=dot(p,p)*.0002;
+	
+	vec2 rep=repeat(p.xz,10.);
+	vec3 prep=vec3(rep.x,p.y,rep.y);
+	
 	// sphere SDF calcs
-	float res=sphere(p-sph1,.8);
-	res=SK(res,sphere(p-sph2,.6));
-	res=SK(res,sphere(p-sph3,.6));
-	res=SK(res,sphere(p-sph4,.5));
+	res=SK(res,sphere(prep-sph1,max(0.,.8-dim)));
+	res=SK(res,sphere(prep-sph2,max(0.,.6-dim)));
+	res=SK(res,sphere(prep-sph3,max(0.,.6-dim)));
+	res=SK(res,sphere(prep-sph4,max(0.,.5-dim)));
 	
 	res=SK(res,sea(p));
 	
@@ -113,7 +190,7 @@ vec3 sky(in vec3 rd,in vec3 sund)
 
 vec3 shading(in vec3 p,in vec3 ro,in vec3 rd,in vec3 n,in vec3 sund)
 {
-	float clicks=mod(u_clicks+0.,5.);
+	float clicks=mod(u_clicks+3.,5.);
 	
 	// base color: normals for now
 	vec3 col=.5+.5*n;
@@ -129,7 +206,7 @@ vec3 shading(in vec3 p,in vec3 ro,in vec3 rd,in vec3 n,in vec3 sund)
 	vec3 spec=pow(max(0.,dot(H,n)),40.)*(1.-vec3(fres));
 	
 	// reflections
-	vec3 sky_ref=sky(reflect(rd,n),sund)*pow(1.-viewf,2.);
+	vec3 sky_ref=sky(reflect(rd,n),sund)*max(.2,pow(1.-viewf,2.));
 	
 	// mode to show
 	if(clicks<.5){
@@ -192,7 +269,7 @@ void main()
 	
 	vec3 ro=vec3(.2,.2,2.3);
 	
-	vec3 m_ta=vec3(mouse.x,0.,0.);
+	vec3 m_ta=vec3(mouse.x,.2,0.);
 	vec3 ta=vec3(0.)+m_ta;
 	
 	vec3 rd=cam(uv,ro,ta,clamp(.5+.8*mouse.y,0.,1.));
