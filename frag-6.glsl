@@ -2,13 +2,10 @@
 precision highp float;
 
 uniform float u_time;
-uniform float u_clicks;
 uniform vec2 u_resolution;
 uniform vec2 u_mouse;
 
 #define S(a,b,x)smoothstep(a,b,x)
-#define sn(r)(r*sin(u_time))
-#define cs(r)(r*cos(u_time))
 
 out vec4 col;
 
@@ -38,14 +35,16 @@ vec3 pcg2d3f(uvec2 v)
 	return vec3(pcg3d(uvec3(v,0)))/float(0xFFFFFFFFu);
 }
 
-vec3 map(vec2 uv,float intensity,float t)
+vec3 map(vec2 uv,vec2 mouse)
 {
-	uv*=4.;
+	uv*=4.+20.*mouse.x;
 	
 	uvec2 uvi=uvec2(floor(uv));
 	vec2 uvf=-.5+fract(uv);
 	
 	vec3 col=vec3(0.);
+	
+	float mdist=100.;
 	
 	for(int i=-1;i<=1;i++)
 	{
@@ -54,18 +53,23 @@ vec3 map(vec2 uv,float intensity,float t)
 			uvec2 cell=uvec2(i,j);
 			vec3 rng=pcg2d3f(cell+uvi);
 			
-			vec3 ch=.5*((.5+.5*sin(rng*t*.5))-.5);
+			vec3 ch=.8*mouse.y*rng;
 			
-			float dist=length(-vec3(uvf,0.)+vec3(cell,.2)+ch);
+			// start at uvf, move to cell, add the rng offset,
+			// check that len
+			float dist=length(-vec3(cell,.0)+vec3(uvf,0.)+ch);
 			
-			float glow=pow(intensity/max(.01,dist)*.5,8.)*.152;
-			
-			col+=rng*glow;
+			if(dist<mdist){
+				
+				mdist=dist;
+				col=rng;
+			}
 		}
 		
 	}
 	
-	return 1.-exp(-col);
+	float d=length(mdist);
+	return(pow(1.-d,2.)*col);
 }
 
 void main()
@@ -75,19 +79,9 @@ void main()
 	vec2 uv=gl_FragCoord.xy/r;
 	// correct aspect ratio
 	uv.x*=r.x/r.y;
+	vec2 mouse=u_mouse/r;
 	
-	float clicks=mod(u_clicks,5.5);
-	
-	float intensity=.2;
-	vec3 rgb=map(uv,intensity,u_time);
-	
-	float speed=1.2;
-	for(int i=0;i<6;i++)
-	{
-		float fi=float(i);
-		rgb+=map(uv*(1.2+fi),.2-(fi*.02),u_time*(1.3+(fi*.5)));
-	}
-	
+	vec3 rgb=map(uv,mouse);
 	rgb=pow(rgb,vec3(.4545));
 	
 	col=vec4(rgb,1.);
