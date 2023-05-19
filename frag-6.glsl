@@ -2,6 +2,7 @@
 precision highp float;
 
 uniform float u_time;
+uniform float u_clicks;
 uniform vec2 u_resolution;
 uniform vec2 u_mouse;
 
@@ -10,6 +11,8 @@ uniform vec2 u_mouse;
 #define cs(r)(r*cos(u_time))
 
 out vec4 col;
+
+const mat2 m=mat2(.80,.60,-.60,.80);
 
 // https://www.shadertoy.com/view/XlGcRh
 uvec3 pcg3d(uvec3 v){
@@ -35,9 +38,8 @@ vec3 pcg2d3f(uvec2 v)
 	return vec3(pcg3d(uvec3(v,0)))/float(0xFFFFFFFFu);
 }
 
-vec3 map(vec2 uv,vec2 mouse,float intensity,float t)
+vec3 map(vec2 uv,float intensity,float t)
 {
-	// vec2 m=-uv+mouse;
 	uv*=4.;
 	
 	uvec2 uvi=uvec2(floor(uv));
@@ -54,9 +56,9 @@ vec3 map(vec2 uv,vec2 mouse,float intensity,float t)
 			
 			vec3 ch=.5*((.5+.5*sin(rng*t*.5))-.5);
 			
-			float dist=length(-vec3(uvf,0.)+vec3(cell,0.)+ch);
+			float dist=length(-vec3(uvf,0.)+vec3(cell,.2)+ch);
 			
-			float glow=pow(intensity/dist*.5,8.)*.152;
+			float glow=pow(intensity/max(.01,dist)*.5,8.)*.152;
 			
 			col+=rng*glow;
 		}
@@ -74,17 +76,17 @@ void main()
 	// correct aspect ratio
 	uv.x*=r.x/r.y;
 	
-	// make mouse agree on coordinate system
-	vec2 mouse=u_mouse/r*2.-1.;
-	mouse.x*=r.x/r.y;
+	float clicks=mod(u_clicks,5.5);
 	
 	float intensity=.2;
+	vec3 rgb=map(uv,intensity,u_time);
 	
-	vec3 rgb=map(uv,mouse,.2,u_time);
-	rgb+=map(uv*1.2,mouse,.1,u_time*1.3);
-	rgb+=map(uv*2.2,mouse,.08,u_time*2.3);
-	rgb+=map(uv*3.2,mouse,.08,u_time*2.5);
-	rgb+=map(uv*4.2,mouse,.04,u_time*3.3);
+	float speed=1.2;
+	for(int i=0;i<6;i++)
+	{
+		float fi=float(i);
+		rgb+=map(uv*(1.2+fi),.2-(fi*.02),u_time*(1.3+(fi*.5)));
+	}
 	
 	rgb=pow(rgb,vec3(.4545));
 	
