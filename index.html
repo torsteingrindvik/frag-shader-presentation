@@ -36,7 +36,10 @@
 
 			// Which `frag-x.glsl` to use.
 			let idx = 6;
+			// Mouse position
 			let mouse = { 'x': 0, 'y': 0 };
+			// How many times have we clicked
+			let clicks = 0.;
 
 			// These are set at runtime.
 			let vertexSource;
@@ -74,6 +77,7 @@
 				if (prevIdx != idx) {
 					console.log(`New index ${idx}, re-fetching frag`);
 					window.document.title = `🚦Shader#${idx}`;
+					clicks = 0.; // reset state
 					fetchFragSource();
 				}
 			}
@@ -87,21 +91,6 @@
 						case "ArrowRight":
 							idx = idxAdd();
 							break;
-					}
-				}, event);
-			}
-
-			function handleTouchStart(event) {
-				changeIdx(function (event) {
-					let x = event.touches[0].clientX;
-
-					let w = window.innerWidth;
-					let portion = w / 5;
-
-					if (x <= portion) {
-						idx = idxSub();
-					} else if (x >= (w - portion)) {
-						idx = idxAdd();
 					}
 				}, event);
 			}
@@ -120,6 +109,43 @@
 				setMouse(event.x, event.y);
 			}
 
+			let last_click = 0.;
+
+			function clickX(x, timestamp) {
+				// debounce
+				if ((timestamp - last_click) < 500.) {
+					return;
+				} else {
+					last_click = timestamp;
+				}
+
+				let w = window.innerWidth;
+				let portion = w / 5;
+
+				if (x <= portion) {
+					console.log("Previous!");
+					idx = idxSub();
+				} else if (x >= (w - portion)) {
+					console.log("Next!");
+					idx = idxAdd();
+				} else {
+					// clicked somewhere in the middle
+					console.log("Click!");
+					clicks += 1.;
+				}
+			}
+
+			function handleTouchStart(event) {
+				changeIdx(function (event) {
+					clickX(event.touches[0].clientX, event.timeStamp);
+				}, event);
+			}
+
+			function handleMouseClick(event) {
+				changeIdx(function (event) {
+					clickX(event.clientX, event.timeStamp);
+				}, event);
+			}
 
 			////////////////////////////////////////////////////////////////////////////////
 			// BROWSER: Add event listeners
@@ -129,6 +155,7 @@
 			canvas.addEventListener('touchstart', handleTouchStart);
 			canvas.addEventListener('touchmove', handleTouchMove);
 			canvas.addEventListener('mousemove', handleMouseMove);
+			canvas.addEventListener('click', handleMouseClick);
 
 
 			////////////////////////////////////////////////////////////////////////////////
@@ -265,6 +292,10 @@ void main()
 						gl.uniform1f(timeUniformLocation, secs);
 					}
 				}
+				function update_uniform_clicks() {
+					let clicksUniformLocation = gl.getUniformLocation(program, 'u_clicks');
+					gl.uniform1f(clicksUniformLocation, clicks);
+				}
 
 				function update_uniform_resolution() {
 					let resolutionUniformLocation = gl.getUniformLocation(program, 'u_resolution');
@@ -292,6 +323,7 @@ void main()
 				} else {
 					// Update uniforms
 					update_uniform_time();
+					update_uniform_clicks();
 					update_uniform_resolution();
 					update_uniform_mouse();
 

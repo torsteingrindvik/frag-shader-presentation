@@ -1,6 +1,7 @@
 precision highp float;
 
 uniform float u_time;
+uniform float u_clicks;
 uniform vec2 u_resolution;
 uniform vec2 u_mouse;
 
@@ -92,16 +93,26 @@ vec4 march(in vec3 ro,in vec3 rd)
 	return vec4(0.);
 }
 
-// Produce a ray direction based on an
-// input ray origin and target angle
-vec3 cam(in vec2 uv,in vec3 ro,in vec3 ta)
+vec3 shading(in vec3 p,in vec3 ro,in vec3 rd,in vec3 n,in vec3 sund)
 {
-	// forward
-	vec3 cf=normalize(-ro+ta);
-	vec3 cu=normalize(cross(cf,vec3(0.,1.,0.)));
-	vec3 cv=normalize(cross(cu,cf));
+	vec3 res=.5+.5*n;
 	
-	return normalize(cf+cu*uv.x+cv*uv.y);
+	// TODO: Show only fres
+	float fres=pow(1.-dot(-rd,n),9.);
+	
+	vec3 col=vec3(0.);
+	
+	float clicks=mod(u_clicks,3.);
+	
+	if(clicks<.5){
+		col+=.2;
+	}else if(clicks<1.5){
+		col=(.5+.5*n)*fres;
+	}else{
+		col=(.5+.5*n);
+	}
+	
+	return col;
 }
 
 vec3 sky(in vec3 rd,in vec3 sund)
@@ -120,6 +131,18 @@ vec3 sky(in vec3 rd,in vec3 sund)
 	// sky*=vec3(1.)*sun;
 	
 	return sky;
+}
+
+// Produce a ray direction based on an
+// input ray origin and target angle
+vec3 cam(in vec2 uv,in vec3 ro,in vec3 ta)
+{
+	// forward
+	vec3 cf=normalize(-ro+ta);
+	vec3 cu=normalize(cross(cf,vec3(0.,1.,0.)));
+	vec3 cv=normalize(cross(cu,cf));
+	
+	return normalize(cf+cu*uv.x+cv*uv.y);
 }
 
 void main()
@@ -143,13 +166,14 @@ void main()
 	vec4 res=march(ro,rd);
 	
 	vec3 col=vec3(0.);
+	vec3 sund=normalize(vec3(3.,2.,2.));
 	
 	if(res.w>.5){
-		// col+=.9;
-		col=.5+.5*normal(res.xyz);
+		vec3 hit=res.xyz;
+		vec3 n=normal(hit);
+		col=shading(hit,ro,rd,n,sund);
 		
 	}else{
-		vec3 sund=normalize(vec3(3.,2.,2.));
 		col=sky(rd,sund);
 	}
 	
