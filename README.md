@@ -1,4 +1,15 @@
-# Disposition
+# A presentation of fragment shaders
+
+How to serve it:
+
+```sh
+# Using python3:
+python3 -m http.server
+
+# Using cargo:
+cargo install simple-http-server
+simple-http-server
+```
 
 ## frag-0 coords
 
@@ -211,3 +222,7 @@ perspective and orthographic.
 ### Why
 
 Camera related, looks  _very_ cool in my mind.
+
+### TODO
+
+Inspect https://www.shadertoy.com/view/ldjfzd
