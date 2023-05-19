@@ -5,34 +5,19 @@ uniform float u_time;
 uniform vec2 u_resolution;
 uniform vec2 u_mouse;
 
-#define S(a,b,x)smoothstep(a,b,x)
-
 out vec4 col;
 
-const mat2 m=mat2(.80,.60,-.60,.80);
-
-// https://www.shadertoy.com/view/XlGcRh
-uvec3 pcg3d(uvec3 v){
-	
-	v=v*1664525u+1013904223u;
-	
-	v.x+=v.y*v.z;
-	v.y+=v.z*v.x;
-	v.z+=v.x*v.y;
-	
-	v^=v>>16u;
-	
-	v.x+=v.y*v.z;
-	v.y+=v.z*v.x;
-	v.z+=v.x*v.y;
-	
-	return v;
+// Dave Hoskins, https://www.shadertoy.com/view/4djSRW
+vec3 hash23(vec2 p)
+{
+	vec3 p3=fract(vec3(p.xyx)*vec3(.1031,.1030,.0973));
+	p3+=dot(p3,p3.yxz+33.33);
+	return fract((p3.xxy+p3.yzz)*p3.zyx);
 }
 
-// range is 0..1
-vec3 pcg2d3f(uvec2 v)
+vec3 noise(uvec2 v)
 {
-	return vec3(pcg3d(uvec3(v,0)))/float(0xFFFFFFFFu);
+	return hash23(vec2(v));
 }
 
 vec3 map(vec2 uv,vec2 mouse)
@@ -51,9 +36,11 @@ vec3 map(vec2 uv,vec2 mouse)
 		for(int j=-1;j<=1;j++)
 		{
 			uvec2 cell=uvec2(i,j);
-			vec3 rng=pcg2d3f(cell+uvi);
+			vec3 rng=noise(cell+uvi);
 			
-			vec3 ch=.8*mouse.y*rng;
+			// When mouse is far down, no rng.
+			// When far up, add "static" rng as well as time based
+			vec3 ch=.8*mouse.y*rng*mix(vec3(1.),.5+.5*sin(u_time*rng),mouse.y);
 			
 			// start at uvf, move to cell, add the rng offset,
 			// check that len

@@ -8,36 +8,25 @@ out vec4 col;
 
 const mat2 m=mat2(.80,.60,-.60,.80);
 
-// https://www.shadertoy.com/view/XlGcRh
-uvec3 pcg3d(uvec3 v){
-	
-	v=v*1664525u+1013904223u;
-	
-	v.x+=v.y*v.z;
-	v.y+=v.z*v.x;
-	v.z+=v.x*v.y;
-	
-	v^=v>>16u;
-	
-	v.x+=v.y*v.z;
-	v.y+=v.z*v.x;
-	v.z+=v.x*v.y;
-	
-	return v;
+// Dave Hoskins, https://www.shadertoy.com/view/4djSRW
+vec3 hash23(vec2 p)
+{
+	vec3 p3=fract(vec3(p.xyx)*vec3(.1031,.1030,.0973));
+	p3+=dot(p3,p3.yxz+33.33);
+	return fract((p3.xxy+p3.yzz)*p3.zyx);
 }
 
-// range is 0..1
-vec3 pcg2d3f(uvec2 v)
+vec3 noise(ivec2 v)
 {
-	return vec3(pcg3d(uvec3(v,0)))/float(0xFFFFFFFFu);
+	return hash23(vec2(v));
 }
 
 vec3 map(vec2 uv,float intensity,float t)
 {
-	uv*=4.;
+	uv*=3.;
 	
-	uvec2 uvi=uvec2(floor(uv));
-	vec2 uvf=-.5+fract(uv);
+	ivec2 uvi=ivec2(floor(uv));
+	vec2 uvf=fract(uv)-.5;
 	
 	vec3 col=vec3(0.);
 	
@@ -45,8 +34,8 @@ vec3 map(vec2 uv,float intensity,float t)
 	{
 		for(int j=-1;j<=1;j++)
 		{
-			uvec2 cell=uvec2(i,j);
-			vec3 rng=pcg2d3f(cell+uvi);
+			ivec2 cell=ivec2(i,j);
+			vec3 rng=noise(cell+uvi);
 			
 			vec3 ch=.5*((.5+.5*sin(rng*t*.5))-.5);
 			
@@ -66,7 +55,7 @@ void main()
 {
 	vec2 r=u_resolution;
 	
-	vec2 uv=gl_FragCoord.xy/r;
+	vec2 uv=gl_FragCoord.xy/r*2.-1.;
 	// correct aspect ratio
 	uv.x*=r.x/r.y;
 	
@@ -78,6 +67,7 @@ void main()
 	{
 		float fi=float(i);
 		rgb+=map(uv*(1.2+fi),.2-(fi*.02),u_time*(1.3+(fi*.5)));
+		uv*=m;
 	}
 	
 	rgb=pow(rgb,vec3(.4545));

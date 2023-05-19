@@ -230,7 +230,7 @@ vec3 shading(in vec3 p,in vec3 ro,in vec3 rd,in vec3 n,in vec3 sund)
 	vec3 dist_vec=-ro+p;
 	float at=max(0.,1.-dot(dist_vec,dist_vec)*.0002);
 	
-	col=mix(col,sky(rd,sund),1.-at);
+	col=mix(col,sky(rd,sund),0.);
 	
 	return col;
 }
