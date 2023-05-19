@@ -102,7 +102,7 @@ vec3 shading(in vec3 p,in vec3 ro,in vec3 rd,in vec3 n,in vec3 sund)
 	
 	vec3 col=vec3(0.);
 	
-	float clicks=mod(u_clicks,3.);
+	float clicks=mod(u_clicks+2.,3.);
 	
 	if(clicks<.5){
 		col+=.2;
@@ -134,15 +134,26 @@ vec3 sky(in vec3 rd,in vec3 sund)
 }
 
 // Produce a ray direction based on an
-// input ray origin and target angle
-vec3 cam(in vec2 uv,in vec3 ro,in vec3 ta)
+// input ray origin and target angle.
+//
+// f is a factor which mixes between perspective (0.0) and ortho (1.0)
+vec3 cam(in vec2 uv,inout vec3 ro,in vec3 ta,in float f)
 {
 	// forward
 	vec3 cf=normalize(-ro+ta);
 	vec3 cu=normalize(cross(cf,vec3(0.,1.,0.)));
 	vec3 cv=normalize(cross(cu,cf));
 	
-	return normalize(cf+cu*uv.x+cv*uv.y);
+	vec3 rd_persp=normalize(cf+cu*uv.x+cv*uv.y);
+	vec3 rd_ortho=cf;
+	
+	vec3 ro_persp=ro;
+	vec3 ro_ortho=ro+3.*(uv.x*cu+uv.y*cv);
+	
+	ro=mix(ro_persp,ro_ortho,f);
+	vec3 rd=mix(rd_persp,rd_ortho,f);
+	
+	return rd;
 }
 
 void main()
@@ -159,10 +170,11 @@ void main()
 	
 	vec3 ro=vec3(.2,.2,2.3);
 	
-	vec3 m_ta=vec3(mouse,0.);
+	vec3 m_ta=vec3(mouse.x,0.,0.);
 	vec3 ta=vec3(0.)+m_ta;
 	
-	vec3 rd=cam(uv,ro,ta);
+	vec3 rd=cam(uv,ro,ta,.5+.5*mouse.y);
+	
 	vec4 res=march(ro,rd);
 	
 	vec3 col=vec3(0.);
