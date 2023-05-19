@@ -93,28 +93,6 @@ vec4 march(in vec3 ro,in vec3 rd)
 	return vec4(0.);
 }
 
-vec3 shading(in vec3 p,in vec3 ro,in vec3 rd,in vec3 n,in vec3 sund)
-{
-	vec3 res=.5+.5*n;
-	
-	// TODO: Show only fres
-	float fres=pow(1.-dot(-rd,n),9.);
-	
-	vec3 col=vec3(0.);
-	
-	float clicks=mod(u_clicks+2.,3.);
-	
-	if(clicks<.5){
-		col+=.2;
-	}else if(clicks<1.5){
-		col=(.5+.5*n)*fres;
-	}else{
-		col=(.5+.5*n);
-	}
-	
-	return col;
-}
-
 vec3 sky(in vec3 rd,in vec3 sund)
 {
 	float horiz=pow(1.-max(0.,rd.y),8.);
@@ -131,6 +109,50 @@ vec3 sky(in vec3 rd,in vec3 sund)
 	// sky*=vec3(1.)*sun;
 	
 	return sky;
+}
+
+vec3 shading(in vec3 p,in vec3 ro,in vec3 rd,in vec3 n,in vec3 sund)
+{
+	float clicks=mod(u_clicks+0.,5.);
+	
+	// base color: normals for now
+	vec3 col=.5+.5*n;
+	
+	// "view vector factor"
+	float viewf=dot(-rd,n);
+	
+	// fresnel
+	float fres=pow(1.-viewf,9.);
+	
+	// specular
+	vec3 H=normalize(-rd+sund);
+	vec3 spec=pow(max(0.,dot(H,n)),40.)*(1.-vec3(fres));
+	
+	// reflections
+	vec3 sky_ref=sky(reflect(rd,n),sund)*pow(1.-viewf,2.);
+	
+	// mode to show
+	if(clicks<.5){
+		col*=.01;
+	}else if(clicks<1.5){
+		col*=fres;
+	}
+	else if(clicks<2.5){
+		col*=spec;
+	}
+	else if(clicks<3.5){
+		col*=sky_ref;
+	}else{
+		col=spec+sky_ref+fres;
+	}
+	
+	// distance attenuation
+	vec3 dist_vec=-ro+p;
+	float at=max(0.,1.-dot(dist_vec,dist_vec)*.0002);
+	
+	col=mix(col,sky(rd,sund),1.-at);
+	
+	return col;
 }
 
 // Produce a ray direction based on an
@@ -173,7 +195,7 @@ void main()
 	vec3 m_ta=vec3(mouse.x,0.,0.);
 	vec3 ta=vec3(0.)+m_ta;
 	
-	vec3 rd=cam(uv,ro,ta,.5+.5*mouse.y);
+	vec3 rd=cam(uv,ro,ta,clamp(.5+.8*mouse.y,0.,1.));
 	
 	vec4 res=march(ro,rd);
 	
