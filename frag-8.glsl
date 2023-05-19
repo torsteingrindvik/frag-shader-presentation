@@ -98,13 +98,16 @@ float sea(in vec3 p)
 {
 	float t=u_time;
 	
-	float s=fbm2(p.xz+t*.9)*.1;
+	// slow big
+	float s=fbm3(p.xz*.08-t*.4)*1.25;
+	
+	s+=fbm2(p.xz+t*.9)*.1;
 	s+=fbm3(p.xz*.8-t*.4)*.25;
 	
-	return dot(vec3(0.,1.,0.),p-vec3(0.,s-1.4,0.));
+	return dot(vec3(0.,1.,0.),p-vec3(0.,s-2.4,0.));
 }
 
-float map(vec3 p)
+float map(vec3 p,float camp)
 {
 	float t=u_time;
 	
@@ -132,20 +135,20 @@ float map(vec3 p)
 	return res;
 }
 
-vec3 normal(vec3 p)
+vec3 normal(in vec3 p,in float camp)
 {
 	const vec2 EPS=vec2(.001,0.);
 	
 	return normalize(
 		vec3(
-			map(p+EPS.xyy)-map(p-EPS.xyy),
-			map(p+EPS.yxy)-map(p-EPS.yxy),
-			map(p+EPS.yyx)-map(p-EPS.yyx)
+			map(p+EPS.xyy,camp)-map(p-EPS.xyy,camp),
+			map(p+EPS.yxy,camp)-map(p-EPS.yxy,camp),
+			map(p+EPS.yyx,camp)-map(p-EPS.yyx,camp)
 		)
 	);
 }
 
-vec4 march(in vec3 ro,in vec3 rd)
+vec4 march(in vec3 ro,in vec3 rd,in float camp)
 {
 	const float EPS=.0001;
 	
@@ -159,7 +162,7 @@ vec4 march(in vec3 ro,in vec3 rd)
 	{
 		vec3 p=ro+rd*t;
 		
-		float d=map(p);
+		float d=map(p,camp);
 		
 		if(d<EPS){
 			return vec4(p,1.);
@@ -183,33 +186,32 @@ vec3 sky(in vec3 rd,in vec3 sund)
 		horiz
 	);
 	
-	// float sun=max(0.,dot(rd,sund));
-	// float sun=clamp(.8+.4*dot(rd,sund),0.,1.);
+	float sun=max(0.,dot(rd,sund));
 	
-	// sky*=vec3(1.)*sun;
+	sky+=vec3(1.,.8431,.2196)*pow(sun,200.);
 	
-	return sky;
+	return clamp(sky,0.,1.);
 }
 
-vec3 shading(in vec3 p,in vec3 ro,in vec3 rd,in vec3 n,in vec3 sund)
+vec3 shading(in vec3 p,in vec3 ro,in vec3 rd,in vec3 n,in vec3 sund,in float camp)
 {
-	float clicks=mod(u_clicks+3.,5.);
+	float clicks=mod(u_clicks+0.,5.);
 	
 	// base color: normals for now
-	vec3 col=.5+.5*n;
+	vec3 col=.1*vec3(.9,.8,1.9)+.14*n;
 	
 	// "view vector factor"
 	float viewf=dot(-rd,n);
 	
 	// fresnel
-	float fres=pow(1.-viewf,9.);
+	float fres=pow(1.-viewf,5.);
 	
 	// specular
 	vec3 H=normalize(-rd+sund);
 	vec3 spec=pow(max(0.,dot(H,n)),40.)*(1.-vec3(fres));
 	
 	// reflections
-	vec3 sky_ref=sky(reflect(rd,n),sund)*max(.2,pow(1.-viewf,2.));
+	vec3 sky_ref=sky(reflect(rd,n),sund)*max(.0,pow(1.-viewf,2.));
 	
 	// mode to show
 	if(clicks<.5){
@@ -223,14 +225,15 @@ vec3 shading(in vec3 p,in vec3 ro,in vec3 rd,in vec3 n,in vec3 sund)
 	else if(clicks<3.5){
 		col*=sky_ref;
 	}else{
-		col=spec+sky_ref+fres;
+		col+=.5*sky(rd,sund)*(2.8*spec+fres*1.2)+.5*(sky_ref*vec3(1.,1.,1.));
 	}
 	
 	// distance attenuation
 	vec3 dist_vec=-ro+p;
-	float at=max(0.,1.-dot(dist_vec,dist_vec)*.0002);
+	float at=1.-max(0.,1.-dot(dist_vec,dist_vec)*.0002);
+	at*=(1.-camp);
 	
-	col=mix(col,sky(rd,sund),0.);
+	col=mix(col,sky(rd,sund),at);
 	
 	return col;
 }
@@ -275,18 +278,20 @@ void main()
 	vec3 m_ta=vec3(mouse.x,.2,0.);
 	vec3 ta=vec3(0.)+m_ta;
 	
-	vec3 rd=cam(uv,ro,ta,clamp(.5+.8*mouse.y,0.,1.));
+	// camera perspective
+	float camp=clamp(.5+.8*mouse.y,0.,1.);
+	vec3 rd=cam(uv,ro,ta,camp);
 	
-	vec4 res=march(ro,rd);
+	vec4 res=march(ro,rd,camp);
 	
-	vec3 sund=normalize(vec3(3.,2.,2.));
+	vec3 sund=normalize(vec3(1.,2.,-4.3));
 	
 	col.a=1.;
 	
 	if(res.w>.5){
 		vec3 hit=res.xyz;
-		vec3 n=normal(hit);
-		col.rgb=shading(hit,ro,rd,n,sund);
+		vec3 n=normal(hit,camp);
+		col.rgb=shading(hit,ro,rd,n,sund,camp);
 		
 	}else{
 		col.rgb=sky(rd,sund);
