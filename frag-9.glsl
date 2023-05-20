@@ -31,40 +31,11 @@ float sphere(in vec3 p,in float radius)
 	return length(p)-radius;
 }
 
-// https://www.shadertoy.com/view/3syGzz
-vec2 repeat(in vec2 p,in float s)
-{
-	return mod(p+s*.5,s)-s*.5;
-}
-
-float hash21(in vec2 i)
-{
-	return fract(
-		sin(
-			dot(
-				floor(i),
-				vec2(127.1,3423.2)
-			)
-		)*32525.123
-	);
-}
-
 float noise(in vec2 p){
 	return sin(p.x)*sin(p.y);
 }
 
 // iq: https://www.shadertoy.com/view/lsl3RH
-float fbm2(in vec2 p)
-{
-	float f=0.;
-	f+=.5*noise(p);
-	p*=m*2.02;
-	
-	f+=.25*noise(p);
-	p*=m*2.03;
-	
-	return f/.75;
-}
 float fbm3(in vec2 p)
 {
 	float f=0.;
@@ -78,36 +49,6 @@ float fbm3(in vec2 p)
 	p*=m*2.04;
 	
 	return f/.875;
-}
-float fbm4(in vec2 p)
-{
-	float f=0.;
-	f+=.5*noise(p);
-	p*=m*2.02;
-	
-	f+=.25*noise(p);
-	p*=m*2.03;
-	
-	f+=.125*noise(p);
-	p*=m*2.04;
-	
-	f+=.065*noise(p);
-	p*=m*2.01;
-	
-	return f/.94;
-}
-
-float sea(in vec3 p)
-{
-	float t=u_time;
-	
-	// slow big
-	float s=fbm3(p.xz*.08-t*.4)*1.25;
-	
-	s+=fbm2(p.xz+t*.9)*.1;
-	s+=fbm3(p.xz*.8-t*.4)*.25;
-	
-	return dot(vec3(0.,1.,0.),p-vec3(0.,s-2.4,0.));
 }
 
 float map(vec3 p)
@@ -124,13 +65,20 @@ float map(vec3 p)
 	
 	float res=sphere(p-sph,r);
 	
+	#define FLOOR()(res=min(res,p.y+3.1));
+	
+	FLOOR();
+	
 	if(m>.5&&m<1.5){
 		res=sphere(p-sph,r+tr);
+		FLOOR();
 	}else if(m>1.5&&m<2.5){
 		res=sphere(p-sph,r+.04*sin(p.y*(1.+100.*MOUSE().y))+tr);
+		FLOOR();
 	}else if(m>2.5&&m<3.5){
 		float my=clamp(1.+MOUSE().y*2.,0.,3.);
 		res=sphere(p-sph,r+.34*fbm3(p.xz*my+u_time*1.)+tr);
+		FLOOR();
 	}
 	
 	return res;
@@ -177,65 +125,26 @@ vec4 march(in vec3 ro,in vec3 rd)
 	return vec4(0.);
 }
 
-vec3 sky(in vec3 rd,in vec3 sund)
-{
-	float horiz=pow(1.-max(0.,rd.y),8.);
+// returns 0.0 for completely in shadow,
+// up towards 1.0 for completely visible
+float soft_shadows(in vec3 p,in vec3 sund,float k){
+	float t=.1;
+	float soft=1.;
 	
-	vec3 sky=mix(
-		vec3(.2902,.6078,.7137),
-		vec3(.9294,.698,.298),
-		horiz
-	);
-	
-	float sun=max(0.,dot(rd,sund));
-	
-	sky+=vec3(1.,.8431,.2196)*pow(sun,200.);
-	
-	return clamp(sky,0.,1.);
-}
-
-vec3 shading(in vec3 p,in vec3 ro,in vec3 rd,in vec3 n,in vec3 sund)
-{
-	float clicks=mod(u_clicks+0.,5.);
-	
-	// base color: normals for now
-	vec3 col=.1*vec3(.9,.8,1.9)+.14*n;
-	
-	// "view vector factor"
-	float viewf=dot(-rd,n);
-	
-	// fresnel
-	float fres=pow(1.-viewf,5.);
-	
-	// specular
-	vec3 H=normalize(-rd+sund);
-	vec3 spec=pow(max(0.,dot(H,n)),40.)*(1.-vec3(fres));
-	
-	// reflections
-	vec3 sky_ref=sky(reflect(rd,n),sund)*max(.0,pow(1.-viewf,2.));
-	
-	// mode to show
-	if(clicks<.5){
-		col*=.01;
-	}else if(clicks<1.5){
-		col*=fres;
-	}
-	else if(clicks<2.5){
-		col*=spec;
-	}
-	else if(clicks<3.5){
-		col*=sky_ref;
-	}else{
-		col+=.5*sky(rd,sund)*(2.8*spec+fres*1.2)+.5*(sky_ref*vec3(1.,1.,1.));
+	for(int i=0;i<30&&t<100.;i++){
+		float hit=map(p+sund*t);
+		
+		soft=min(soft,k*hit/t);
+		if(soft<.01){
+			soft=0.;
+			break;
+		}
+		
+		t+=hit;
 	}
 	
-	// distance attenuation
-	vec3 dist_vec=-ro+p;
-	float at=1.-max(0.,1.-dot(dist_vec,dist_vec)*.0002);
-	
-	col=mix(col,sky(rd,sund),at);
-	
-	return col;
+	soft=clamp(soft,.48,1.);
+	return soft*soft*(3.-2.*soft);
 }
 
 // Produce a ray direction based on an
@@ -252,11 +161,15 @@ vec3 cam(in vec2 uv,inout vec3 ro,in vec3 ta)
 
 void main()
 {
-	col=vec4(.8314,.9333,.9255,1.);
+	col=vec4(.9647,.9765,.7569,1.);
 	
 	vec2 r=u_resolution;
 	
-	vec2 uv=gl_FragCoord.xy/r*2.-1.;
+	vec2 uv01=gl_FragCoord.xy/r;
+	vec2 uv=uv01*2.-1.;
+	
+	col.rgb=mix(col.rgb,col.rgb*.3,1.-uv01.y);
+	
 	// correct aspect ratio
 	uv.x*=r.x/r.y;
 	
@@ -274,12 +187,17 @@ void main()
 	
 	vec4 res=march(ro,rd);
 	
-	vec3 sund=normalize(vec3(1.,2.,-4.3));
+	vec3 sund=normalize(vec3(1.,1.8,2.3));
 	
 	if(res.w>.5){
-		vec3 hit=res.xyz;
-		vec3 n=normal(hit);
+		vec3 p=res.xyz;
+		vec3 n=normal(p);
 		col.rgb=.5+.5*n;
+		
+		// soft shadows
+		float ss=soft_shadows(p+.1*n,sund,2.5);
+		
+		col.rgb*=vec3(ss);
 	}
 	
 	col.rgb=pow(col.rgb,vec3(.4545));
