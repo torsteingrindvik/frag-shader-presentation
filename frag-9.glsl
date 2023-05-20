@@ -9,7 +9,10 @@ uniform vec2 u_mouse;
 #define S(a,b,x)smoothstep(a,b,x)
 #define sn(r)(r*sin(u_time))
 #define cs(r)(r*cos(u_time))
-#define SK(a,b)smin(a,b,.65);
+#define SK(a,b)smin(a,b,.65)
+
+#define MODE()mod(u_clicks+0.,5.)
+#define MOUSE()(u_mouse/u_resolution)
 
 out vec4 col;
 
@@ -107,48 +110,46 @@ float sea(in vec3 p)
 	return dot(vec3(0.,1.,0.),p-vec3(0.,s-2.4,0.));
 }
 
-float map(vec3 p,float camp)
+float map(vec3 p)
 {
 	float t=u_time;
+	float m=MODE();
 	
-	// sphere positions
-	vec3 sph1=vec3(sin(t*1.4),-1.+sin(t),-2.);
-	vec3 sph2=vec3(2.,-1.3+sin(t+2.),0.);
-	vec3 sph3=vec3(-2.,.3+sin(t+3.),0.);
-	vec3 sph4=vec3(13.,1.2,-10.);
+	vec3 sph=vec3(0.,.2,-1.);
 	
-	float res=sea(p);
+	// base radius
+	float r=1.;
+	// time radius
+	float tr=.1*sin(u_time*5.);
 	
-	float dim=dot(p,p)*.0002;
+	float res=sphere(p-sph,r);
 	
-	vec2 rep=repeat(p.xz,10.);
-	vec3 prep=vec3(rep.x,p.y,rep.y);
-	
-	// sphere SDF calcs
-	res=SK(res,sphere(prep-sph1,max(0.,.8-dim)));
-	res=SK(res,sphere(prep-sph2,max(0.,.6-dim)));
-	res=SK(res,sphere(prep-sph3,max(0.,.6-dim)));
-	res=SK(res,sphere(prep-sph4,max(0.,.5-dim)));
-	
-	res=SK(res,sea(p));
+	if(m>.5&&m<1.5){
+		res=sphere(p-sph,r+tr);
+	}else if(m>1.5&&m<2.5){
+		res=sphere(p-sph,r+.04*sin(p.y*(1.+100.*MOUSE().y))+tr);
+	}else if(m>2.5&&m<3.5){
+		float my=clamp(1.+MOUSE().y*2.,0.,3.);
+		res=sphere(p-sph,r+.34*fbm3(p.xz*my+u_time*1.)+tr);
+	}
 	
 	return res;
 }
 
-vec3 normal(in vec3 p,in float camp)
+vec3 normal(in vec3 p)
 {
 	const vec2 EPS=vec2(.001,0.);
 	
 	return normalize(
 		vec3(
-			map(p+EPS.xyy,camp)-map(p-EPS.xyy,camp),
-			map(p+EPS.yxy,camp)-map(p-EPS.yxy,camp),
-			map(p+EPS.yyx,camp)-map(p-EPS.yyx,camp)
+			map(p+EPS.xyy)-map(p-EPS.xyy),
+			map(p+EPS.yxy)-map(p-EPS.yxy),
+			map(p+EPS.yyx)-map(p-EPS.yyx)
 		)
 	);
 }
 
-vec4 march(in vec3 ro,in vec3 rd,in float camp)
+vec4 march(in vec3 ro,in vec3 rd)
 {
 	const float EPS=.0001;
 	
@@ -162,7 +163,7 @@ vec4 march(in vec3 ro,in vec3 rd,in float camp)
 	{
 		vec3 p=ro+rd*t;
 		
-		float d=map(p,camp);
+		float d=map(p);
 		
 		if(d<EPS){
 			return vec4(p,1.);
@@ -193,7 +194,7 @@ vec3 sky(in vec3 rd,in vec3 sund)
 	return clamp(sky,0.,1.);
 }
 
-vec3 shading(in vec3 p,in vec3 ro,in vec3 rd,in vec3 n,in vec3 sund,in float camp)
+vec3 shading(in vec3 p,in vec3 ro,in vec3 rd,in vec3 n,in vec3 sund)
 {
 	float clicks=mod(u_clicks+0.,5.);
 	
@@ -231,7 +232,6 @@ vec3 shading(in vec3 p,in vec3 ro,in vec3 rd,in vec3 n,in vec3 sund,in float cam
 	// distance attenuation
 	vec3 dist_vec=-ro+p;
 	float at=1.-max(0.,1.-dot(dist_vec,dist_vec)*.0002);
-	at*=(1.-camp);
 	
 	col=mix(col,sky(rd,sund),at);
 	
@@ -240,29 +240,20 @@ vec3 shading(in vec3 p,in vec3 ro,in vec3 rd,in vec3 n,in vec3 sund,in float cam
 
 // Produce a ray direction based on an
 // input ray origin and target angle.
-//
-// f is a factor which mixes between perspective (0.0) and ortho (1.0)
-vec3 cam(in vec2 uv,inout vec3 ro,in vec3 ta,in float f)
+vec3 cam(in vec2 uv,inout vec3 ro,in vec3 ta)
 {
 	// forward
 	vec3 cf=normalize(-ro+ta);
 	vec3 cu=normalize(cross(cf,vec3(0.,1.,0.)));
 	vec3 cv=normalize(cross(cu,cf));
 	
-	vec3 rd_persp=normalize(cf+cu*uv.x+cv*uv.y);
-	vec3 rd_ortho=cf;
-	
-	vec3 ro_persp=ro;
-	vec3 ro_ortho=ro+3.*(uv.x*cu+uv.y*cv);
-	
-	ro=mix(ro_persp,ro_ortho,f);
-	vec3 rd=mix(rd_persp,rd_ortho,f);
-	
-	return rd;
+	return normalize(cf+cu*uv.x+cv*uv.y);
 }
 
 void main()
 {
+	col=vec4(.8314,.9333,.9255,1.);
+	
 	vec2 r=u_resolution;
 	
 	vec2 uv=gl_FragCoord.xy/r*2.-1.;
@@ -273,28 +264,22 @@ void main()
 	vec2 mouse=u_mouse/r*2.-1.;
 	mouse.x*=r.x/r.y;
 	
-	vec3 ro=vec3(.2,.2,2.3);
+	vec3 ro=vec3(.0,.3,2.3);
 	
 	vec3 m_ta=vec3(mouse.x,.2,0.);
 	vec3 ta=vec3(0.)+m_ta;
 	
 	// camera perspective
-	float camp=clamp(.5+.8*mouse.y,0.,1.);
-	vec3 rd=cam(uv,ro,ta,camp);
+	vec3 rd=cam(uv,ro,ta);
 	
-	vec4 res=march(ro,rd,camp);
+	vec4 res=march(ro,rd);
 	
 	vec3 sund=normalize(vec3(1.,2.,-4.3));
 	
-	col.a=1.;
-	
 	if(res.w>.5){
 		vec3 hit=res.xyz;
-		vec3 n=normal(hit,camp);
-		col.rgb=shading(hit,ro,rd,n,sund,camp);
-		
-	}else{
-		col.rgb=sky(rd,sund);
+		vec3 n=normal(hit);
+		col.rgb=.5+.5*n;
 	}
 	
 	col.rgb=pow(col.rgb,vec3(.4545));
