@@ -36,9 +36,14 @@ float sphere(in vec2 p,in float radius)
 
 float map(vec2 uv,vec2 mouse,bool left_side)
 {
-	float res=sphere(uv-vec2(0.,.3),.2);
-	res=lrmin(res,sphere(uv-vec2(.5,0.),.2),.4+.4*mouse.x,left_side);
-	res=lrmin(res,sphere(uv-vec2(0.,mouse.y*2.-1.),.2),.4+.4*mouse.x,left_side);
+	float r=.12;
+	float res=sphere(uv-vec2(0.,.3),r);
+	
+	uv.x=abs(uv.x);
+	float k=.05;
+	
+	res=lrmin(res,sphere(uv-vec2(.2,0.),r),k+.4*mouse.x,left_side);
+	res=lrmin(res,sphere(uv-vec2(0.,mouse.y*2.-1.),r),k+.4*mouse.x,left_side);
 	
 	return res;
 }
@@ -47,9 +52,11 @@ void main()
 {
 	vec2 r=u_resolution;
 	
-	// -1..1 range
+	// 0..1 range
 	vec2 uv=gl_FragCoord.xy/r;
 	vec2 uv01=uv;
+	
+	// -1..1 range
 	uv=uv*2.-1.;
 	
 	vec2 mouse=u_mouse/r;
@@ -64,11 +71,13 @@ void main()
 	if(uv.x<0.){
 		// remap UVs to left
 		uv.x=uv.x*2.+1.;
+		uv*=r.y/r.x;
 		
 		res=map(uv,mouse,true);
 	}else{
 		// remap UVs to right
 		uv.x=uv.x*2.-1.;
+		uv*=r.y/r.x;
 		
 		res=map(uv,mouse,false);
 	}
